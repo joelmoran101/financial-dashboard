@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Dashboard Test</title>
+    <script src="https://unpkg.com/papaparse@5/papaparse.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { 
+            background: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+        }
+        .error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+        }
+        .loading { 
+            background: #d1ecf1; 
+            color: #0c5460; 
+            border: 1px solid #bee5eb; 
+        }
+        pre { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 4px; 
+            overflow-x: auto; 
+            font-size: 12px;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 10px 0; 
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        th { 
+            background: #f8f9fa; 
+            font-weight: bold; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 Financial Dashboard - Data Validation Test</h1>
+        <div id="status" class="status loading">Testing CSV file access and data processing...</div>
+        <div id="results"></div>
+        
+        <script>
+            // Security-focused test script
+            async function testSecureDataAccess() {
+                const statusEl = document.getElementById('status');
+                const resultsEl = document.getElementById('results');
+                
+                try {
+                    statusEl.textContent = 'Loading CSV files...';
+                    
+                    // Test loading each CSV file
+                    const files = ['Stocks.csv', 'Forms.csv', 'Tasks.csv'];
+                    const results = {};
+                    
+                    for (const file of files) {
+                        try {
+                            const response = await fetch(`/data/${file}`);
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const csvText = await response.text();
+                            
+                            // Basic security checks
+                            if (csvText.length > 10 * 1024 * 1024) { // 10MB limit
+                                throw new Error('File too large');
+                            }
+                            
+                            const parsed = Papa.parse(csvText, { 
+                                header: true, 
+                                skipEmptyLines: true,
+                                preview: 100 // Limit for testing
+                            });
+                            
+                            if (parsed.errors.length > 0) {
+                                console.warn(`Parsing warnings for ${file}:`, parsed.errors);
+                            }
+                            
+                            results[file] = {
+                                status: 'success',
+                                rows: parsed.data.length,
+                                columns: parsed.data.length > 0 ? Object.keys(parsed.data[0]) : [],
+                                sampleData: parsed.data.slice(0, 3)
+                            };
+                            
+                        } catch (error) {
+                            results[file] = {
+                                status: 'error',
+                                error: error.message
+                            };
+                        }
+                    }
+                    
+                    // Display results
+                    let html = '<h2>📊 Test Results</h2>';
+                    let allSuccess = true;
+                    
+                    for (const [file, result] of Object.entries(results)) {
+                        if (result.status === 'success') {
+                            html += `
+                                <div class="status success">
+                                    ✅ <strong>${file}</strong>: ${result.rows} rows, ${result.columns.length} columns
+                                    <br>Columns: ${result.columns.join(', ')}
+                                </div>
+                            `;
+                            
+                            if (result.sampleData.length > 0) {
+                                html += '<table>';
+                                html += '<tr>' + result.columns.map(col => `<th>${col}</th>`).join('') + '</tr>';
+                                result.sampleData.forEach(row => {
+                                    html += '<tr>' + result.columns.map(col => `<td>${row[col] || ''}</td>`).join('') + '</tr>';
+                                });
+                                html += '</table>';
+                            }
+                        } else {
+                            html += `
+                                <div class="status error">
+                                    ❌ <strong>${file}</strong>: ${result.error}
+                                </div>
+                            `;
+                            allSuccess = false;
+                        }
+                    }
+                    
+                    resultsEl.innerHTML = html;
+                    
+                    if (allSuccess) {
+                        statusEl.className = 'status success';
+                        statusEl.textContent = '✅ All CSV files loaded successfully! Ready to start the React dashboard.';
+                    } else {
+                        statusEl.className = 'status error';
+                        statusEl.textContent = '❌ Some CSV files failed to load. Check the results below.';
+                    }
+                    
+                } catch (error) {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `❌ Test failed: ${error.message}`;
+                    console.error('Test error:', error);
+                }
+            }
+            
+            // Run test when page loads
+            testSecureDataAccess();
+        </script>
+    </div>
+</body>
+</html>
